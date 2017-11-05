@@ -1,0 +1,241 @@
+TimesysGettingStartedGuideforTIBeagleBoneBlack
+
+Contents
+Introduction
+Prerequisites
+Host Requirements
+Target Requirements
+Preparing the Target
+Configuring Serial Communication
+Preparing the Secure Digital Card
+Preparing the Host
+Booting the Board
+Set Environment Variables
+Load The Kernel
+Load The Device Tree
+Boot the Kernel
+Additional Information
+Factory Documentation
+Introduction
+This document will describe in detail the procedures for booting a Linux kernel image and mounting a root file system from an SD Card on the TI BeagleBone Black.
+
+Prerequisites
+Host Requirements
+To properly boot the TI BeagleBone Black using software from Timesys, your host machine must meet the following requirements:
+Modern GNU/Linux Distribution. Timesys recommends one of the following distributions:
+Ubuntu (Most recent release or LTS)
+Fedora (Most recent release)
+Root or sudo permission on the Development Host.
+A copy of the Linux Kernel (uImage-4.9-ts-armv7l), device tree file (beaglebone_black.dtb) and Root File System (rootfs.tar.gz) for the Target Board downloaded from Factory. These are found in the output directory of your online build, or in the directory build_armv7l-timesys-linux-<libc>/images/ on the command line.
+An available USB port on your Development Host.
+A SD card slot or adapter on your Development Host.
+Target Requirements
+To boot the TI BeagleBone Black, you will need the following items:
+
+TI BeagleBone Black
+Micro SD Card
+Micro USB Cable or 5V Power Supply
+USB TTL Serial Cable (Such as the FTDI TTL-232R-3V3)
+Once you have all of the necessary components, you should perform the following steps:
+
+Connect the USB TTL serial cable to J1. The following connections are relevant:
+Pin	Function
+1	GND
+4	RX
+5	TX
+Insert the SD card into your host machine. You will be loading your boot files onto this device.
+Connect the USB port of the board to the USB port of your workstation if powering the board using the USB cable.
+If the board draws more power than the USB connecter can handle, it may cycle during the boot process. In this case, connect the 5V power supply to your board.
+Preparing the Target
+Configuring Serial Communication
+The BeagleBone Black uses a serial debug port to communicate with the host machine. The commands discussed in this section are meant to be performed by a privileged user account. This requires the root login or prepending each command with sudo.
+Using Minicom
+Start minicom on your host machine in configuration mode. As root:
+# minicom -o -s -w 
+A menu of configuration should appear. Use the Down-arrow key to scroll down and select the Serial port setup option, and press Enter.
+Verify that the listed serial port is the same one that is connected to the target board. If it is not, press A, and enter the correct device. This is /dev/ttyUSB0 on most Linux distributions.
+Set the Bps/Par/Bits option by pressing the letter E and using the next menu to set the appropriate values. You press the key that corresponds to the value 115200, then press Enter.
+Set Hardware flow control to No using the F key.
+Set Software flow control to No using the G key.
+Press Enter to return to the main configuration menu, and then press Esc to exit this menu.
+Reset the board, and wait for a moment. If you do not see output from the board, press Enter several times until you see the prompt. If you do not see any output from the board, and have verified that the serial terminal connection is setup correctly, contact your board vendor.
+TIP: If you experience an error similar to Device /dev/ttyUSB0 is locked when starting minicom, it usually means that another process is using the serial port (which is usually another instance of minicom). You can find the process that is currently using the serial port by executing the following:
+
+# fuser /dev/ttyUSB0 
+/dev/ttyUSB0:         28358 
+# ps 28358 
+  PID TTY      STAT  TIME COMMAND 
+  28923 pts/0    S+    0:00 minicom 
+This process can also be killed directly with fuser as root. Please use this command with caution:
+
+# fuser -k /dev/ttyUSB0 
+Using GNU Screen
+To quickly connect to a board using Gnu Screen, execute the following:
+
+# screen /dev/ttyUSB0 115200 
+For more information about using screen, please consult the man page, or view the manual online at http://www.gnu.org/software/screen/manual/screen.html
+
+Preparing the Secure Digital Card
+The BeagleBone Black boots from an SD card. Some kits may be shipped with one that contains a sample kernel and RFS preloaded. We will be replacing these with the kernel and RFS from Factory. If you are using a blank SD card or have trouble replacing the software on the preloaded one, see Partitioning the SD Card. Otherwise, skip directly to Writing Boot Files to the SD Card.
+Before you begin, you should determine the name of your SD card on your host system. To do so:
+
+Connect the SD card to your host system. Many modern systems have SD card slots on the case, or you can purchase a USB SD Card Reader for around $15 US.
+Determine the device name of the SD Card. This can be done using dmesg. In the following example, the device is /dev/sdX, which contains one partition sdX1.
+$ dmesg | tail 
+[88050.184080] sd 4:0:0:0: [sdX] 1990656 512-byte hardware sectors: (1.01 GB/972 MiB) 
+[88050.184821] sd 4:0:0:0: [sdX] Write Protect is off 
+[88050.184824] sd 4:0:0:0: [sdX] Mode Sense: 03 00 00 00 
+[88050.184827] sd 4:0:0:0: [sdX] Assuming drive cache: write through 
+[88050.185575] sd 4:0:0:0: [sdX] 1990656 512-byte hardware sectors: (1.01 GB/972 MiB) 
+[88050.186323] sd 4:0:0:0: [sdX] Write Protect is off 
+[88050.186325] sd 4:0:0:0: [sdX] Mode Sense: 03 00 00 00 
+[88050.186327] sd 4:0:0:0: [sdX] Assuming drive cache: write through 
+[88050.186330]  sdX: sdX1 
+Partitioning the SD card
+If you want to use a different SD card or its contents become corrupted, you can use the fdisk tool to create two partitions on your SD card. Please note that all data on the card will be lost upon completion of these steps.
+Unmount the partition if it was automounted by using the umount command.
+$ umount /dev/sdX1 
+As root, run the fdisk utility on the drive.
+$ sudo fdisk /dev/sdX 
+In fdisk, Delete the existing partition table and create a new one using the o command.
+Command (m for help): o 
+Building a new DOS disklabel with disk identifier 0x8b025602. 
+Changes will remain in memory only, until you decide to write them. 
+After that, of course, the previous content won't be recoverable. 
+Create a new primary partition using the n command. The first partition will be a FAT partition for storing the boot files. 64 MB is typically more than enough for this purpose.
+Command (m for help): n 
+Partition type: 
+   p   primary (0 primary, 0 extended, 4 free) 
+   e   extended 
+Select (default p): p 
+Partition number (1-4, default 1): 1 
+First sector (2048-30679039, default 2048): 
+Using default value 2048 
+Last sector, +sectors or +sizeK,M,G (2048-30679039, default 30679039): +64M 
+Set the first partition as W95 FAT32 (LBA) using the t command and entering the Hex code c.
+Command (m for help): t 
+Selected partition 1 
+Hex code (type L to list codes): c 
+Set the bootable flag on the first partition using the a command.
+Command (m for help): a 
+Partition number (1-4): 1 
+Create a second primary partition using the n command. This partition will be a linux partition for storing the root filesystem. It will fill the rest of the SD card.
+Command (m for help): n 
+Command action 
+   e   extended 
+   p   primary partition (1-4) 
+p 
+Partition number (1-4, default 2): 2 
+First sector (133120-30679039, default 133120): 
+Using default value 18432 
+Last sector, +sectors or +sizeK,M,G (133120-30679039, default 30679039): 
+Using default value 30679039 
+Verify that the partition table is correct by using the p command. It should look similar to the following:
+Command (m for help): p                                                          
+                                                                                 
+Disk /dev/sdX: 15.7 GB, 15707668480 bytes 
+64 heads, 32 sectors/track, 14980 cylinders, total 30679040 sectors 
+Units = sectors of 1 * 512 = 512 bytes 
+Sector size (logical/physical): 512 bytes / 512 bytes 
+I/O size (minimum/optimal): 512 bytes / 512 bytes 
+Disk identifier: 0x6eaae8f8 
+
+   Device Boot      Start         End      Blocks   Id  System 
+/dev/sdX1   *        2048      133119       65536    c  W95 FAT32 (LBA) 
+/dev/sdX2          133120    30679039    14773960   83  Linux 
+This step will destroy all data on the SD Card - Write the partition table to the card using the w command.
+Command (m for help): w 
+The partition table has been altered! 
+
+Calling ioctl() to re-read partition table. 
+
+WARNING: If you have created or modified any DOS 6.x 
+partitions, please see the fdisk manual page for additional 
+information. 
+Syncing disks. 
+Format the first partition of the SD card with a FAT filesystem using the mkfs.vfat tool.
+$ sudo /sbin/mkfs.vfat -n boot /dev/sdX1 
+Format the second partition using an ext4 filesystem using the mkfs.ext4 tool.
+$ sudo /sbin/mkfs.ext4 -L rfs /dev/sdX2 
+Writing Boot Files to the SD Card
+Once you have a properly partitioned SD card, you can then populate it with the boot files generated by Factory.
+
+The partitions are usually automounted under /media, but if not, you can use the mount command to mount the partition to an arbitrary location.
+$ sudo mount /dev/sdX1 /media/boot 
+$ sudo mount /dev/sdX2 /media/rfs 
+Copy the u-boot MLO and u-boot bootloader images into the vfat partition.
+$ sudo cp MLO /media/boot/ 
+$ sudo cp u-boot.img /media/boot/ 
+Copy the kernel image into the boot partition.
+$ sudo cp  uImage-4.9-ts-armv7l /media/boot/ 
+Copy the dtbfile, beaglebone_black.dtb into the boot partition.
+$ sudo cp  beaglebone_black.dtb /media/boot/ 
+As root, extract the rootfs.tar.gz archive to the ext4 partition.
+$ sudo tar xzf rootfs.tar.gz -C /media/rfs 
+Unmount all partitions.
+$ sudo umount /dev/sdX1 
+$ sudo umount /dev/sdX2 
+Remove the card from the host machine, and insert it into the SD card slot on the BeagleBone Black.
+Hold down S2, then power up the board by removing power and reapplying it.
+Preparing the Host
+No additional host setup is required to boot from SD.
+Booting the Board
+Set Environment Variables
+You must set a few environment variables in order to boot the board from the SD card. This is done with the setenv and saveenv commands in U-Boot.
+On the target, set the following environment variables:
+
+Variable	Value
+bootargs	console=ttyS0,115200 root=/dev/mmcblk0p2 rw rootwait
+load_kernel	fatload mmc :1 0x82000000 uImage-4.9-ts-armv7l
+load_dtb	fatload mmc :1 0x88000000 beaglebone_black.dtb
+bootcmd	mmc rescan\; run load_kernel load_dtb\; bootm 0x82000000 - 0x88000000
+Example
+
+> setenv bootargs console=ttyS0,115200 root=/dev/mmcblk0p2 rw rootwait 
+> setenv load_kernel fatload mmc :1 0x82000000 uImage-4.9-ts-armv7l 
+> setenv load_dtb fatload mmc :1 0x88000000 beaglebone_black.dtb 
+> setenv bootcmd mmc rescan\; run load_kernel load_dtb\; bootm 0x82000000 - 0x88000000 
+> saveenv 
+Load The Kernel
+You can use the mmc subsystem to load the kernel from the SD card.
+Example
+
+> mmc rescan 
+> fatload mmc :1 0x82000000 uImage-4.9-ts-armv7l 
+reading uImage-4.9-ts-armv7l 
+
+3008612 bytes read 
+Load The Device Tree
+You can use the mmc subsystem to load the device tree file (dtb) from the SD card.
+Example
+
+> mmc rescan 
+> fatload mmc :1 0x88000000 beaglebone_black.dtb 
+reading beaglebone_black.dtb 
+
+24612 bytes read 
+Boot the Kernel
+The bootm command is used to boot the kernel. It loads the file that was previously loaded using the fatload command.
+Example
+
+> bootm 0x82000000 - 0x88000000 
+## Booting kernel from Legacy Image at 0x82000000 .. 
+   Image Name:   Linux-4.9 
+   Image Type:   ARM Linux Kernel Image (uncompressed) 
+   Data Size:    3008548 Bytes =  2.9 MB 
+   Load Address: 80008000 
+   Entry Point:  80008000 
+   Verifying Checksum ... OK 
+   Loading Kernel Image ... OK 
+## Flattened Device Tree blob at 0x88000000 
+   Booting using the fdt blob at 0x88000000 
+   Loading Kernel Image ... OK 
+OK 
+Additional Information
+Factory Documentation
+/docs/wiki/factory/FactoryGSG
+/docs/wiki/factory/FactoryBestPractices
+/docs/wiki/nirvana-workflow/Workflow
+/docs/wiki/factory/FactoryTroubleshooting
+/docs/wiki/factory/FactoryOutput
+/docs/wiki/factory/FactoryArchitecture

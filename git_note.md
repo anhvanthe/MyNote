@@ -1,21 +1,36 @@
-WORKING WITH GIT
+# WORKING WITH GIT
 
+```
+This is my personal note
+
+```
 1
 git push origin head:refs/for/fpt_lpet_frdmkl33z_hal_dac
 git push origin HEAD:refs/for/master
 Push a branch to gerrit repository 
+
 2.pull
 git pull <remote> <branch>
 If you wish to set tracking information for this branch you can do so with:
 git branch --set-upstream-to=origin/<branch> develope_ble_led_button
+
 3.
+git commit -m
 git commit --amend
 Amend previous commit
+
 4.
 git remote -v
+git remote set-url [--push] <name> <newurl> [<oldurl>]
+git remote set-url --add <name> <newurl>
+git remote set-url --delete <name> <url>
+git remote rename <old> <new>
+
 5.
+
 git fetch origin
 git pull origin [branch_name]
+
 6.
 git submodule init
 git submodule update
@@ -64,6 +79,7 @@ Displays changes in a repository or a selected set of commits
 
 --merges
 	Print only merge commits. This is exactly the same as --min-parents=2.
+
 12. HEAD
 First all what is HEAD?
 	HEAD is a simply a reference to the current commit (latest) in the current branch.
@@ -90,3 +106,9 @@ git diff [--options] <commit> <commit> [--] [<path>...]
 
 git diff HEAD^^ HEAD main.c
 	to see the difference for a file "main.c
+
+
+14. checkout and tag
+git tag -l
+git checkout branch
+git checkout tags/<tag_name> -b <branch_name>
